@@ -29,4 +29,8 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       BOT_TOKEN: ${BOT_TOKEN:?error}
+      GIGACHAT_CREDENTIALS: ${GIGACHAT_CREDENTIALS:?error}
+    volumes:
+      - ./files:/aiogram_files
+
     

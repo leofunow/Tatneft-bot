@@ -5,7 +5,6 @@ WORKDIR /bot
 COPY ./requirements.txt /bot/requirements.txt
 
 RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade setuptools
 RUN pip3 install --no-cache-dir -r /bot/requirements.txt
 
 COPY ./src .

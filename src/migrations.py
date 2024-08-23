@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS messages (
     text TEXT
 );
 CREATE TABLE IF NOT EXISTS refs (
-    message_id BIGINT PRIMARY KEY,
+    message_id BIGINT NOT NULL,
     chat_id BIGINT NOT NULL,
     ref_link TEXT NOT NULL,
     ref_cite TEXT NOT NULL
