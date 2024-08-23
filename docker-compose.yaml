@@ -1,0 +1,32 @@
+services:
+  postgres:
+    hostname: 
+      postgres
+    image: postgres:14
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?error}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_DB: ${POSTGRES_DB:?error}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+  
+  aiogram:
+    hostname:
+      aiogram
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?error}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_DB: ${POSTGRES_DB:?error}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      BOT_TOKEN: ${BOT_TOKEN:?error}
+    
