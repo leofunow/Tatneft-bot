@@ -3,7 +3,9 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
+import re
 from langchain.docstore.document import Document
 import logging
 from os import getenv
@@ -20,6 +22,9 @@ TOKEN = getenv("BOT_TOKEN")
 logging.info("starting loading vector storage")
 
 DOCS_FOLDER="/aiogram_files/"
+
+pattern = re.compile(r'(?<=[а-я])Т(?=[а-я])')
+
 
 # docs = ["o_vozmozhnosti_izvlecheniya_metallov_iz_vysokovyazkih_neftey_rossiyskih.pdf", "ob_intensifikatsii_dobychi_nefti_na_pozdney_stadii_razrabotki_almetievskoy.pdf", "statisticheskiy-analiz-kachestva-trudnoizvlekaemyh-neftey.pdf"]
 
@@ -46,15 +51,26 @@ except Exception as e:
     logging.info(e)
 # load_faiss()
 # store = store2
-text_splitter = RecursiveCharacterTextSplitter()
+text_splitter = RecursiveCharacterTextSplitter(separators="/n /n")
 
 
 def read_pdf(file_name):
-    reader = PdfReader(DOCS_FOLDER + file_name)
-    pages = "\n\n".join([i.extract_text() for i in reader.pages])
-    chunks = text_splitter.split_text(pages)
-    chunks_docs = [Document(page_content=chunks[i], metadata={
-                            "link": file_name}) for i in range(len(chunks))]
+    reader = PyPDFLoader(DOCS_FOLDER + file_name)
+    pages = reader.load_and_split(text_splitter=text_splitter)
+    for i in range(len(pages)):
+        tmp = pages[i].page_content
+        tmp = tmp.replace(' -\n', '')
+        tmp = tmp.replace('-\n', '')
+        tmp = tmp.replace('Т\n', '')
+        tmp = tmp.replace('________________', '')
+        tmp = pattern.sub('', tmp)
+        pages[i].page_content = tmp
+        
+    chunks_docs = [Document(page_content=pages[i].page_content, metadata={
+                            "link": file_name}) for i in range(len(pages))]
+    
+    
+    
     store.add_documents(chunks_docs, embedding=embeddings)
     save_faiss()
 
