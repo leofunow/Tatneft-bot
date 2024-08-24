@@ -145,9 +145,10 @@ async def echo_handler(message: Message) -> None:
         else:
             keyboard = admin_keyboard(message)
             builder = InlineKeyboardBuilder()
+            buttons = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
             for i in range(4):
                 builder.add(InlineKeyboardButton(
-                    text="Источник " + str(i + 1),
+                    text=buttons[i],
                     callback_data="ref_" + str(i + 1))
                 )
             answer = sberrag.answer_sbert(message.text)
@@ -166,13 +167,19 @@ async def echo_handler(message: Message) -> None:
 async def send_ref(callback: CallbackQuery):
     n = int(callback.data.split("_")[1])
     ref = db.get_ref(callback.message.message_id - 1, callback.message.chat.id, n)
+    data =  ref[0].replace("<", "&lt;").replace(">", "&gt;")
+    link = "https://cyberleninka.ru/article/n/" + ref[1].split(".pdf")[0].replace("_","-")
     try:
         await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=callback.message.message_id + 1, text = f"""
-            <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{ref[0]}</blockquote>""")
+            <b>Источник:</b> <a href="{link}">{ref[1]}</a>\n\n<blockquote>{data}</blockquote>""", disable_web_page_preview=True)
+        # await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=callback.message.message_id + 1, text = f"""
+        #     <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{data}</blockquote>""")
+        await bot.answer_callback_query(callback.id)
     except Exception as e:
         if str(e) != "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message":
             await callback.message.answer(f"""
-                <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{ref[0]}</blockquote>""")
+                <b>Источник:</b> <a href="{link}">{ref[1]}</a>\n\n<blockquote>{data}</blockquote>""", disable_web_page_preview=True)
+        await bot.answer_callback_query(callback.id)
 
 
 

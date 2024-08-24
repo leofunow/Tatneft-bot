@@ -10,7 +10,7 @@ from langchain.docstore.document import Document
 import logging
 from os import getenv
 import urllib
-
+import json
 
 from aiogram import Bot, Dispatcher, html
 from aiogram.enums import ParseMode
@@ -81,7 +81,12 @@ def read_pdf(file_name):
 retriever = store.as_retriever()
 
 logging.info("vector storage loaded!")
-def answer_sbert(question):
+def answer_sbert(question: str):
+    with open('keywords.json', 'r', encoding='utf-8') as json_data:
+        keywords = json.load(json_data)
+    for key in keywords.keys():
+        question = question.replace(key, f"{key}({keywords[key]})")
+        # question = question.replace(key.lower(), f"{key}({keywords[key]})")
     context = retriever.invoke(question)
     messages = [
         SystemMessage(
