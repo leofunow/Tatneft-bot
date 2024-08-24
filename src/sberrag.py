@@ -85,8 +85,7 @@ def answer_sbert(question):
     context = retriever.invoke(question)
     messages = [
         SystemMessage(
-            content=f"Answer only in russian. Answer the questions based only on the following context (if question not in context, anwser 'Я не знаю'): {
-                context}"
+            content=f"Ты - помощник по поиску информации, который использует извлеченные данные для генерации ответов на вопросы. Тебе предоставлен текстовый отрывок, в котором может содержаться информация, необходимая для ответа на вопрос. Если ты найдешь нужную информацию в тексте, используй ее для составления ответа. Если необходимой информации в тексте нет, просто ответь (Не знаю)./nКонтекст: {context}"
         ),
         HumanMessage(content=question),
     ]
