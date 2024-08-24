@@ -76,7 +76,7 @@ async def command_start_handler(message: Message) -> None:
         await message.answer("Вы супер администратор", reply_markup=keyboard)
     elif db.is_admin(message.from_user.id)[0] == 1:
         await message.answer("Вы администратор", reply_markup=keyboard)
-    await message.answer(f"Здравствуйте, {html.bold(message.from_user.full_name)}! Я бот-помощник, специализирющийся на научных статьях о нефтегазовой промышленности. Пожалуйста, введите ваш вопрос")
+    await message.answer(f"Здравствуйте, {html.bold(message.from_user.full_name)}! Я бот-помощник, специализирующийся на научных статьях о нефтегазовой промышленности. Пожалуйста, введите ваш вопрос")
 
 @dp.message(F.text.lower() == "добавить админа")
 async def add_admin_handler(message: Message) -> None:
@@ -155,7 +155,7 @@ async def echo_handler(message: Message) -> None:
                            message.text, answer["context"])
 
             await message.answer(f"""
-                <b>Вот что я думаю по вашему вопросу:</b>\n\n{answer["answer"]}\n\n<b>Возможно вам будут полезны следующие источники:</b>""",
+                <b>Вот что я нашел по вашему вопросу:</b>\n\n{answer["answer"]}\n\n<b>Возможно вам будут полезны следующие источники:</b>""",
                                  reply_markup=builder.as_markup())
     except TypeError as e:
         print(e, flush=True)
