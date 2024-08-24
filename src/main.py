@@ -9,9 +9,12 @@ from aiogram import F
 from aiogram import Bot, Dispatcher, html
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
+from aiogram.filters import CommandStart, Command, Filter
+from aiogram.types import Message, InlineKeyboardButton, CallbackQuery, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters.state import State, StatesGroup
+from aiogram.client.session.aiohttp import AiohttpSession
+
 print("loading models and db...", flush=True)
 import db
 import sberrag
@@ -20,32 +23,94 @@ TOKEN = getenv("BOT_TOKEN")
 
 dp = Dispatcher()
 
+bot = Bot(token=TOKEN, default=DefaultBotProperties(
+        parse_mode=ParseMode.HTML))
+
+class Form(StatesGroup):
+    id = State()
+
+
+def admin_keyboard(message: Message):
+    print(db.is_admin(message.from_user.id), flush=True)
+    if db.is_admin(message.from_user.id)[0] == 1:
+        kb = [
+            [
+                KeyboardButton(text="Добавить админа"),
+                KeyboardButton(text="Добавить статью"),
+                KeyboardButton(text="Сохранить кэш"),
+            ],
+        ]
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=kb,
+            resize_keyboard=True,
+            input_field_placeholder="Панель администратора"
+        )
+        return keyboard
+    return None
 
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     """
     This handler receives messages with `/start` command
     """
+    keyboard = admin_keyboard(message)
+    if db.is_admin(message.from_user.id)[0] == 1:
+        await message.answer("Вы администратор", reply_markup=keyboard)
     await message.answer(f"Здравствуйте, {html.bold(message.from_user.full_name)}! Я бот-помощник, специализирющийся на научных статьях о нефтегазовой промышленности. Пожалуйста, введите ваш вопрос")
 
+@dp.message(F.text.lower() == "добавить админа")
+async def add_admin_handler(message: Message) -> None:
+    db.add_message(message.message_id, message.chat.id,
+                       message.text, [])
+    await message.answer("Введите id сессии")
+
+@dp.message(F.text.lower() == "добавить статью")
+async def add_doc_handler(message: Message) -> None:
+    db.add_message(message.message_id, message.chat.id,
+                       message.text, [])
+    await message.answer("Отправьте статью")
+
+@dp.message(F.text.lower() == "сохранить кэш")
+async def save_faiss(message: Message) -> None:
+    db.add_message(message.message_id, message.chat.id,
+                       message.text, [])
+    sberrag.save_faiss()
+    await message.answer("Кэш сохранен")
+
+@dp.message(Command("get_chat_id"))
+async def get_chat_id_handler(message: Message) -> None:
+    await message.answer(f"<code>{message.chat.id}</code>")
 
 @dp.message()
 async def echo_handler(message: Message) -> None:
     try:
-        builder = InlineKeyboardBuilder()
-        for i in range(4):
-            builder.add(InlineKeyboardButton(
-                text="Источник " + str(i + 1),
-                callback_data="ref_" + str(i + 1))
-            )
-        answer = sberrag.answer_sbert(message.text)
-        db.add_message(message.message_id, message.chat.id,
-                       message.text, answer["context"])
+        if db.is_admin(message.from_user.id)[0] == 1 and db.get_previous_message(message.chat.id) == 'Добавить админа':
+            db.add_admin(int(message.text))
+            await message.answer("Админ добавлен")
+            db.add_message(message.message_id, message.chat.id,
+                    message.text, [])
+        elif db.is_admin(message.from_user.id)[0] == 1 and db.get_previous_message(message.chat.id) == 'Добавить статью':
+            await sberrag.add_document(message.document.file_id, message.document.file_name)
+            await message.answer("Статья добавлена")
+            db.add_message(message.message_id, message.chat.id,
+                    message.text, [])
+        else:
+            keyboard = admin_keyboard(message)
+            builder = InlineKeyboardBuilder()
+            for i in range(4):
+                builder.add(InlineKeyboardButton(
+                    text="Источник " + str(i + 1),
+                    callback_data="ref_" + str(i + 1))
+                )
+            answer = sberrag.answer_sbert(message.text)
+            db.add_message(message.message_id, message.chat.id,
+                           message.text, answer["context"])
 
-        await message.answer(f"""
-            <b>Вот что я думаю по вашему вопросу:</b>\n\n{answer["answer"]}\n\n<b>Возможно вам будут полезны следующие источники:</b>""",
-                             reply_markup=builder.as_markup())
-    except TypeError:
+            await message.answer(f"""
+                <b>Вот что я думаю по вашему вопросу:</b>\n\n{answer["answer"]}\n\n<b>Возможно вам будут полезны следующие источники:</b>""",
+                                 reply_markup=builder.as_markup())
+    except TypeError as e:
+        print(e, flush=True)
         await message.answer("Извините, я вас не понимаю, попробуйте переформулировать вопрос")
 
 
@@ -53,13 +118,18 @@ async def echo_handler(message: Message) -> None:
 async def send_ref(callback: CallbackQuery):
     n = int(callback.data.split("_")[1])
     ref = db.get_ref(callback.message.message_id - 1, callback.message.chat.id, n)
-    await callback.message.answer(f"""
-        <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{ref[0]}</blockquote>""")
+    try:
+        await bot.edit_message_text(chat_id=callback.message.chat.id, message_id=callback.message.message_id + 1, text = f"""
+            <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{ref[0]}</blockquote>""")
+    except Exception as e:
+        if str(e) != "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message":
+            await callback.message.answer(f"""
+                <b>Источник:</b> <code>{ref[1]}</code>\n\n<blockquote>{ref[0]}</blockquote>""")
+
 
 
 async def main() -> None:
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML))
+    
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

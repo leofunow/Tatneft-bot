@@ -32,5 +32,6 @@ services:
       GIGACHAT_CREDENTIALS: ${GIGACHAT_CREDENTIALS:?error}
     volumes:
       - ./files:/aiogram_files
+      - ./cache:/aiogram_cache
 
     

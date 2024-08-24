@@ -5,6 +5,9 @@ import logging
 import migrations
 
 
+
+
+
 def get_cursor() -> psycopg2.extensions.cursor:
     connection = psycopg2.connect(
         dbname=getenv("POSTGRES_DB"),
@@ -57,3 +60,17 @@ def get_ref(message_id: int, chat_id: int, n):
     cursor.execute("SELECT ref_cite, ref_link FROM refs WHERE message_id = %s AND chat_id = %s OFFSET %s LIMIT 1", (message_id, chat_id, n - 1))
     return cursor.fetchone()
 
+def is_admin(chat_id: int) -> bool:
+    cursor = get_cursor()
+    cursor.execute("SELECT count(*) FROM admins WHERE chat_id = %s", (chat_id,))
+    return cursor.fetchone()
+
+def add_admin(chat_id: int) -> None:
+    cursor = get_cursor()
+    cursor.execute("INSERT INTO admins VALUES (%s)", (chat_id,))
+    cursor.close()
+
+def get_previous_message(chat_id: int) -> str:
+    cursor = get_cursor()
+    cursor.execute("SELECT text FROM messages WHERE chat_id = %s ORDER BY message_id DESC LIMIT 1", (chat_id,))
+    return cursor.fetchone()[0]
