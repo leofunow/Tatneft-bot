@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS refs (
 );
 CREATE TABLE IF NOT EXISTS admins (
     chat_id BIGINT PRIMARY KEY
-)
+);
 """
 delete_redundant_messages = "DELETE FROM messages WHERE chat_id = %s AND message_id NOT IN (SELECT message_id FROM messages WHERE chat_id = %s ORDER BY message_id DESC LIMIT 3)"

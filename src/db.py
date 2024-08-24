@@ -21,7 +21,7 @@ def get_cursor() -> psycopg2.extensions.cursor:
     return cursor
 
 
-def migrate_postgres() -> None:
+def migrate_postgres(SUPERADMIN) -> None:
     """
     Migrate postgres database to latest version
     """
@@ -29,6 +29,7 @@ def migrate_postgres() -> None:
         logging.info("Migrating postgres database...")
         cursor = get_cursor()
         cursor.execute(migrations.create_tables)
+        cursor.execute("INSERT INTO admins VALUES (%s) ON CONFLICT DO NOTHING;", (str(SUPERADMIN)))
         # logging.info(cursor.fetchall())
         cursor.close()
         logging.info("Postgres database migrated!")
@@ -74,3 +75,7 @@ def get_previous_message(chat_id: int) -> str:
     cursor = get_cursor()
     cursor.execute("SELECT text FROM messages WHERE chat_id = %s ORDER BY message_id DESC LIMIT 1", (chat_id,))
     return cursor.fetchone()[0]
+def delete_admin(chat_id: int) -> None:
+    cursor = get_cursor()
+    cursor.execute("DELETE FROM admins WHERE chat_id = %s", (chat_id,))
+    cursor.close()

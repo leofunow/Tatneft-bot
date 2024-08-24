@@ -20,6 +20,7 @@ import db
 import sberrag
 print("models and db loaded!", flush=True)
 TOKEN = getenv("BOT_TOKEN")
+SUPERADMIN = getenv("SUPERADMIN")
 
 dp = Dispatcher()
 
@@ -28,6 +29,11 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(
 
 class Form(StatesGroup):
     id = State()
+
+def isSuperAdmin(id):
+    if id == int(SUPERADMIN):
+        return True
+    return False
 
 
 def admin_keyboard(message: Message):
@@ -40,6 +46,17 @@ def admin_keyboard(message: Message):
                 KeyboardButton(text="Сохранить кэш"),
             ],
         ]
+        if isSuperAdmin(message.from_user.id):
+            kb = [
+            [
+                KeyboardButton(text="Добавить админа"),
+                KeyboardButton(text="Добавить статью"),
+            ],
+            [
+                KeyboardButton(text="Сохранить кэш"),
+                KeyboardButton(text="Удалить админа"),
+            ]
+        ]
         keyboard = ReplyKeyboardMarkup(
             keyboard=kb,
             resize_keyboard=True,
@@ -48,34 +65,56 @@ def admin_keyboard(message: Message):
         return keyboard
     return None
 
+
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     """
     This handler receives messages with `/start` command
     """
     keyboard = admin_keyboard(message)
-    if db.is_admin(message.from_user.id)[0] == 1:
+    if isSuperAdmin(message.from_user.id):
+        await message.answer("Вы супер администратор", reply_markup=keyboard)
+    elif db.is_admin(message.from_user.id)[0] == 1:
         await message.answer("Вы администратор", reply_markup=keyboard)
     await message.answer(f"Здравствуйте, {html.bold(message.from_user.full_name)}! Я бот-помощник, специализирющийся на научных статьях о нефтегазовой промышленности. Пожалуйста, введите ваш вопрос")
 
 @dp.message(F.text.lower() == "добавить админа")
 async def add_admin_handler(message: Message) -> None:
-    db.add_message(message.message_id, message.chat.id,
-                       message.text, [])
-    await message.answer("Введите id сессии")
+    if db.is_admin(message.from_user.id)[0] == 1:
+        db.add_message(message.message_id, message.chat.id,
+                        message.text, [])
+        await message.answer("Введите id сессии")
+    else: 
+        await message.answer("Извините, у вас недостаточно прав для этой команды")
+
+@dp.message(F.text.lower() == "удалить админа")
+async def add_doc_handler(message: Message) -> None:
+    if isSuperAdmin(message.from_user.id):
+        db.add_message(message.message_id, message.chat.id,
+                        message.text, [])
+        await message.answer("Введите id сессии")
+    else: 
+        await message.answer("Извините, у вас недостаточно прав для этой команды")
 
 @dp.message(F.text.lower() == "добавить статью")
 async def add_doc_handler(message: Message) -> None:
-    db.add_message(message.message_id, message.chat.id,
-                       message.text, [])
-    await message.answer("Отправьте статью")
+    if db.is_admin(message.from_user.id)[0] == 1:
+        db.add_message(message.message_id, message.chat.id,
+                        message.text, [])
+        await message.answer("Отправьте статью")
+    else: 
+        await message.answer("Извините, у вас недостаточно прав для этой команды")
+
 
 @dp.message(F.text.lower() == "сохранить кэш")
 async def save_faiss(message: Message) -> None:
-    db.add_message(message.message_id, message.chat.id,
-                       message.text, [])
-    sberrag.save_faiss()
-    await message.answer("Кэш сохранен")
+    if db.is_admin(message.from_user.id)[0] == 1:
+        db.add_message(message.message_id, message.chat.id,
+                        message.text, [])
+        sberrag.save_faiss()
+        await message.answer("Кэш сохранен")
+    else: 
+        await message.answer("Извините, у вас недостаточно прав для этой команды")
 
 @dp.message(Command("get_chat_id"))
 async def get_chat_id_handler(message: Message) -> None:
@@ -92,6 +131,15 @@ async def echo_handler(message: Message) -> None:
         elif db.is_admin(message.from_user.id)[0] == 1 and db.get_previous_message(message.chat.id) == 'Добавить статью':
             await sberrag.add_document(message.document.file_id, message.document.file_name)
             await message.answer("Статья добавлена")
+            db.add_message(message.message_id, message.chat.id,
+                    message.text, [])
+        elif isSuperAdmin(message.from_user.id) and db.get_previous_message(message.chat.id) == 'Удалить админа':
+            try:
+                db.delete_admin(int(message.text))
+                await message.answer("Админ удален")
+            except Exception as e:
+                print(e, flush=True)
+                await message.answer("Ошибка удаления админа, попробуйте снова")
             db.add_message(message.message_id, message.chat.id,
                     message.text, [])
         else:
@@ -134,5 +182,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    db.migrate_postgres()
+    db.migrate_postgres(SUPERADMIN)
     asyncio.run(main())

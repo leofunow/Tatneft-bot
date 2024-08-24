@@ -30,6 +30,7 @@ services:
       POSTGRES_PORT: 5432
       BOT_TOKEN: ${BOT_TOKEN:?error}
       GIGACHAT_CREDENTIALS: ${GIGACHAT_CREDENTIALS:?error}
+      SUPERADMIN: ${SUPERADMIN:?error}
     volumes:
       - ./files:/aiogram_files
       - ./cache:/aiogram_cache
